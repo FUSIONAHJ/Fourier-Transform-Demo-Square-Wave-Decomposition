@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fourier Transform Demo: Square Wave Decomposition</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        
+        h1 {
+            color: #333;
+            margin: 5px 0 10px 0;
+            font-size: 24px;
+        }
+
+        .description {
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 1200px;
+            font-size: 14px;
+            line-height: 1.4;
+            background-color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            gap: 15px;
+            flex: 1; /* Fill remaining height */
+            min-height: 0; /* Important for flex nesting */
+        }
+
+        .controls {
+            width: 260px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow-y: auto; /* Allow scroll only in controls if screen is tiny */
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .control-group input {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .charts {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+        }
+
+        .chart-container {
+            position: relative;
+            flex: 1; /* Divide space equally */
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 10px;
+            min-height: 0; /* Important for canvas resizing */
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .harmonics-info {
+            margin-top: 2px;
+            font-size: 11px;
+            color: #777;
+        }
+
+        .error-display {
+            padding: 10px;
+            background-color: #f0f7ff;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .error-value {
+            font-weight: bold;
+            color: #e74c3c;
+            font-size: 16px;
+        }
+
+        /* Mobile adjustments */
+        @media (max-height: 700px) {
+            h1 { font-size: 18px; margin: 5px 0; }
+            .description { display: none; } /* Hide description on very small screens */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gatekeeper" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30,30,30,0.98); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; backdrop-filter: blur(5px);">
+        
+        <h1 style="color: #fff; margin-bottom: 10px;">🚫 仅限授权访问</h1>
+        <p style="color: #ccc; max-width: 400px; margin-bottom: 30px;">
+            这是《信号与系统》课程专属交互教具。<br>
+            如您是校外学习者，请购买离线正式版。
+        </p>
+        
+        <div style="margin-bottom: 40px; padding: 25px; border: 1px solid #4CAF50; border-radius: 12px; background: rgba(76, 175, 80, 0.1);">
+            <h3 style="margin-top: 0; color: #4CAF50;">获取完整离线版 (Windows/Mac)</h3>
+            <ul style="text-align: left; font-size: 14px; color: #ddd; margin-bottom: 20px;">
+                <li>✅ 包含全部知识点演示</li>
+                <li>✅ 无需联网，永久使用</li>
+                <li>✅ 附带期末重难点解析</li>
+            </ul>
+            <a href="https://mianbaoduo.com/o/你的链接" target="_blank" style="display:block; background: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; transition: 0.3s;">
+                即将上线 (¥ ？)
+            </a>
+        </div>
+
+        <div style="border-top: 1px solid #444; padding-top: 20px; width: 300px;">
+            <p style="font-size: 13px; color: #888; margin-bottom: 10px;">本校学生请输入课程口令：</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <input type="text" id="passInput" placeholder="输入口令" style="padding: 8px; border-radius: 4px; border: 1px solid #555; background: #333; color: white; outline: none;">
+                <button onclick="checkPass()" style="padding: 8px 15px; width: auto; background: #666;">解锁</button>
+            </div>
+            <p id="errorMsg" style="color: #ff6b6b; font-size: 12px; margin-top: 10px; display: none;">口令错误</p>
+        </div>
+    </div>
+
+    <script>
+        // === 配置区域 ===
+        // 这是 "tute2025EE2302_04" 的 Base64 编码
+        // 学生即使查看源码，也只能看到这串乱码，不知道真实密码
+        const ENCRYPTED_KEY = "dHV0ZTIwMjVFRTIzMDJfMDQ="; 
+        // ===============
+
+        function unlock() {
+            const gate = document.getElementById('gatekeeper');
+            gate.style.opacity = '0';
+            setTimeout(() => {
+                gate.style.display = 'none';
+            }, 500); 
+            
+            // 存入缓存，标记为已解锁
+            localStorage.setItem('course_auth_token', ENCRYPTED_KEY);
+        }
+
+        function checkPass() {
+            const input = document.getElementById('passInput').value;
+            const errorMsg = document.getElementById('errorMsg');
+            
+            // 将用户输入的内容加密后，与预存的密文进行比对
+            try {
+                if (btoa(input) === ENCRYPTED_KEY) {
+                    unlock();
+                } else {
+                    throw new Error();
+                }
+            } catch (e) {
+                errorMsg.style.display = 'block';
+                const inputEl = document.getElementById('passInput');
+                inputEl.style.border = '1px solid #ff6b6b';
+            }
+        }
+
+        // 自动检测逻辑
+        (function initAuth() {
+            // 1. 检查 URL 是否自带魔法参数 (例如: ?auth=tute2025EE2302_04)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlKey = urlParams.get('auth');
+
+            // 2. 检查 浏览器缓存
+            const cachedToken = localStorage.getItem('course_auth_token');
+
+            // 验证 URL 参数 (先加密再比对)
+            if (urlKey && btoa(urlKey) === ENCRYPTED_KEY) {
+                unlock();
+                return;
+            }
+
+            // 验证缓存
+            if (cachedToken === ENCRYPTED_KEY) {
+                // 如果以前验证过，直接隐形解锁
+                document.getElementById('gatekeeper').style.display = 'none';
+            }
+        })();
+    </script>
+    <h1>Fourier Transform Demo: Square Wave Decomposition</h1>
+    
+    <div class="description">
+        <div>
+            This animation demonstrates how a square wave is decomposed into sinusoidal components (harmonics) via Fourier Transform.
+            <br>
+            <strong>Top Chart:</strong> The black line is the synthesized wave; colored lines are individual sine components. 
+            <strong>Bottom Chart:</strong> The frequency spectrum (amplitude of each component).
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label for="frequency">Fundamental Freq (Hz)</label>
+                <input type="range" id="frequency" min="0.1" max="2" step="0.1" value="1">
+                <span id="frequency-value">1.0</span>
+            </div>
+            <div class="control-group">
+                <label for="amplitude">Amplitude</label>
+                <input type="range" id="amplitude" min="0.1" max="2" step="0.1" value="1">
+                <span id="amplitude-value">1.0</span>
+            </div>
+            <div class="control-group">
+                <label for="dutyCycle">Duty Cycle (%)</label>
+                <input type="range" id="dutyCycle" min="10" max="90" step="5" value="50">
+                <span id="dutyCycle-value">50</span>
+            </div>
+            <div class="control-group">
+                <label for="harmonics">Harmonics Count</label>
+                <input type="range" id="harmonics" min="1" max="50" step="1" value="10">
+                <span id="harmonics-value">10</span>
+                <div class="harmonics-info">(More = Closer to Ideal Square Wave)</div>
+            </div>
+            
+            <div class="error-display">
+                <div style="font-size: 12px; font-weight: bold; color: #333;">Mean Squared Error (MSE):</div>
+                <div class="error-value" id="mse-value">0.0000</div>
+                <div style="font-size: 11px; margin-top: 5px; color: #666;">
+                    Difference between the finite series approximation and the ideal square wave.
+                </div>
+            </div>
+            
+            <button id="download-btn">Download Charts</button>
+        </div>
+        
+        <div class="charts">
+            <div class="chart-container">
+                <canvas id="timeDomainChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="frequencyDomainChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const frequencySlider = document.getElementById('frequency');
+        const frequencyValue = document.getElementById('frequency-value');
+        const amplitudeSlider = document.getElementById('amplitude');
+        const amplitudeValue = document.getElementById('amplitude-value');
+        const dutyCycleSlider = document.getElementById('dutyCycle');
+        const dutyCycleValue = document.getElementById('dutyCycle-value');
+        const harmonicsSlider = document.getElementById('harmonics');
+        const harmonicsValue = document.getElementById('harmonics-value');
+        const mseValue = document.getElementById('mse-value');
+        const downloadBtn = document.getElementById('download-btn');
+
+        // Init values
+        frequencyValue.textContent = frequencySlider.value;
+        amplitudeValue.textContent = amplitudeSlider.value;
+        dutyCycleValue.textContent = dutyCycleSlider.value;
+        harmonicsValue.textContent = harmonicsSlider.value;
+
+        // Contexts
+        const timeDomainCtx = document.getElementById('timeDomainChart').getContext('2d');
+        const frequencyDomainCtx = document.getElementById('frequencyDomainChart').getContext('2d');
+
+        // Time Domain Chart Config
+        const timeDomainChart = new Chart(timeDomainCtx, {
+            type: 'line',
+            data: {
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 0 // Disable animation for performance during slider drag
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time (s)'
+                        },
+                        ticks: {
+                            // Limit to 1 decimal place
+                            callback: function(value, index, values) {
+                                const label = this.getLabelForValue(value);
+                                return parseFloat(label).toFixed(1);
+                            },
+                            maxTicksLimit: 20
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Amplitude'
+                        },
+                        min: -2,
+                        max: 2
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Time Domain - Square Wave & Components',
+                        font: { size: 14 }
+                    },
+                    legend: {
+                        display: true,
+                        labels: { boxWidth: 10, font: { size: 11 } }
+                    },
+                    zoom: {
+                        zoom: {
+                            wheel: { enabled: true },
+                            pinch: { enabled: true },
+                            mode: 'xy',
+                        },
+                        pan: { enabled: true, mode: 'xy' }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'nearest',
+                        intersect: false
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+
+        // Frequency Domain Chart Config
+        const frequencyDomainChart = new Chart(frequencyDomainCtx, {
+            type: 'bar',
+            data: {
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 0
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Frequency (Hz)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Amplitude'
+                        },
+                        min: 0,
+                        max: 1.5
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Frequency Domain - Amplitude Spectrum',
+                        font: { size: 14 }
+                    },
+                    zoom: {
+                        zoom: {
+                            wheel: { enabled: true },
+                            pinch: { enabled: true },
+                            mode: 'xy',
+                        },
+                        pan: { enabled: true, mode: 'xy' }
+                    }
+                }
+            }
+        });
+
+        // Generate Time Points
+        const timePoints = [];
+        for (let t = 0; t <= 4; t += 0.01) {
+            timePoints.push(t);
+        }
+
+        // Ideal Square Wave Function
+        function idealSquareWave(t, frequency, amplitude, dutyCycle) {
+            const period = 1 / frequency;
+            const phase = (t % period) / period;
+            return phase < dutyCycle ? amplitude : -amplitude;
+        }
+
+        // Calculate MSE
+        function calculateMSE(approximation, frequency, amplitude, dutyCycle) {
+            let sumSquaredError = 0;
+            for (let i = 0; i < timePoints.length; i++) {
+                const t = timePoints[i];
+                const idealValue = idealSquareWave(t, frequency, amplitude, dutyCycle);
+                const error = idealValue - approximation[i];
+                sumSquaredError += error * error;
+            }
+            return sumSquaredError / timePoints.length;
+        }
+
+        // Update Charts
+        function updateCharts() {
+            const frequency = parseFloat(frequencySlider.value);
+            const amplitude = parseFloat(amplitudeSlider.value);
+            const dutyCycle = parseFloat(dutyCycleSlider.value) / 100;
+            const harmonics = parseInt(harmonicsSlider.value);
+            
+            frequencyValue.textContent = frequency;
+            amplitudeValue.textContent = amplitude;
+            dutyCycleValue.textContent = dutyCycle * 100;
+            harmonicsValue.textContent = harmonics;
+            
+            const harmonicData = [];
+            const componentDatasets = []; // Store individual harmonics here first
+            let squareWaveData = new Array(timePoints.length).fill(0);
+            
+            // Fourier Series Calculation
+            for (let n = 1; n <= harmonics; n++) {
+                const harmonicFrequency = n * frequency;
+                
+                // For a standard square wave (50% duty), only odd harmonics exist
+                if (n % 2 === 1) {
+                    const harmonicAmplitude = (4 * amplitude) / (n * Math.PI);
+                    
+                    harmonicData.push({
+                        frequency: harmonicFrequency,
+                        amplitude: harmonicAmplitude
+                    });
+                    
+                    const harmonicDataPoints = timePoints.map(t => {
+                        return harmonicAmplitude * Math.sin(2 * Math.PI * harmonicFrequency * t);
+                    });
+                    
+                    for (let i = 0; i < squareWaveData.length; i++) {
+                        squareWaveData[i] += harmonicDataPoints[i];
+                    }
+                    
+                    // Use Golden Angle (approx 137.5 degrees) for distinct colors
+                    // This prevents colors from repeating or being too similar for adjacent harmonics
+                    const hue = (n * 137.5) % 360; 
+
+                    componentDatasets.push({
+                        label: `${harmonicFrequency.toFixed(1)} Hz`,
+                        data: harmonicDataPoints,
+                        // Make components solid, thicker, and more opaque/vibrant
+                        borderColor: `hsla(${hue}, 80%, 40%, 0.85)`,
+                        borderWidth: n === 1 ? 3 : 2, // Thicker line for fundamental (n=1)
+                        pointRadius: 0,
+                        borderDash: [], // Solid lines for all components
+                        order: 10
+                    });
+                }
+            }
+            
+            const idealSquareWaveData = timePoints.map(t => {
+                return idealSquareWave(t, frequency, amplitude, dutyCycle);
+            });
+            
+            const mse = calculateMSE(squareWaveData, frequency, amplitude, dutyCycle);
+            mseValue.textContent = mse.toFixed(4);
+            
+            // Create final dataset array strictly ordered for visibility
+            // 1. Components (bottom layer)
+            const finalDatasets = [...componentDatasets];
+
+            // 2. Ideal Square Wave (middle layer)
+            finalDatasets.push({
+                label: 'Ideal Square Wave',
+                data: idealSquareWaveData,
+                borderColor: 'red',
+                borderWidth: 2,
+                pointRadius: 0,
+                borderDash: [5, 5],
+                order: 2 // Priority for tooltip
+            });
+
+            // 3. Synthesized Wave (top layer - thick and opaque)
+            finalDatasets.push({
+                label: 'Synthesized Wave',
+                data: squareWaveData,
+                borderColor: 'black',
+                borderWidth: 3,
+                pointRadius: 0,
+                order: 1 // Highest priority for tooltip
+            });
+            
+            // Update Time Domain
+            timeDomainChart.data.labels = timePoints;
+            timeDomainChart.data.datasets = finalDatasets;
+            timeDomainChart.update();
+            
+            // Update Frequency Domain
+            frequencyDomainChart.data.labels = harmonicData.map(h => h.frequency.toFixed(1));
+            frequencyDomainChart.data.datasets = [{
+                label: 'Amplitude',
+                data: harmonicData.map(h => h.amplitude),
+                backgroundColor: harmonicData.map((h, i) => {
+                    // Match colors with the time domain chart
+                    const n = (i * 2) + 1; // Reconstruct 'n' from index since harmonicData only has odd n
+                    const hue = (n * 137.5) % 360;
+                    return `hsla(${hue}, 80%, 40%, 0.85)`;
+                }),
+                borderColor: 'transparent',
+                borderWidth: 1
+            }];
+            frequencyDomainChart.update();
+        }
+
+        // Listeners
+        frequencySlider.addEventListener('input', updateCharts);
+        amplitudeSlider.addEventListener('input', updateCharts);
+        dutyCycleSlider.addEventListener('input', updateCharts);
+        harmonicsSlider.addEventListener('input', updateCharts);
+
+        // Download
+        downloadBtn.addEventListener('click', function() {
+            const timeDomainImage = timeDomainChart.toBase64Image();
+            const frequencyDomainImage = frequencyDomainChart.toBase64Image();
+            
+            const link = document.createElement('a');
+            link.href = timeDomainImage;
+            link.download = 'time-domain-chart.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setTimeout(() => {
+                const link2 = document.createElement('a');
+                link2.href = frequencyDomainImage;
+                link2.download = 'frequency-domain-chart.png';
+                document.body.appendChild(link2);
+                link2.click();
+                document.body.removeChild(link2);
+            }, 100);
+        });
+
+        // Start
+        updateCharts();
+    </script>
+</body>
+</html>
